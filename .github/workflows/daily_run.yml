@@ -1,0 +1,46 @@
+name: Daily News & Oil Price Digest
+
+on:
+  schedule:
+    # Runs at 00:30 UTC = 07:30 Phnom Penh time (UTC+7), every day.
+    # Change the time by editing the two numbers below (minute hour).
+    - cron: "30 0 * * *"
+  workflow_dispatch: {}   # lets you click "Run workflow" manually in the Actions tab
+
+jobs:
+  run-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r scraper/requirements.txt
+
+      - name: Run scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python scraper/scraper.py
+
+      - name: Run AI categorization + summaries
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python scraper/ai_processor.py
+
+      - name: Send daily summary email
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          ADMIN_DASHBOARD_URL: ${{ secrets.ADMIN_DASHBOARD_URL }}
+        run: python scraper/send_email.py
